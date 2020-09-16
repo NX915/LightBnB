@@ -48,6 +48,3 @@ CREATE TABLE property_reviews (
   rating SMALLINT NOT NULL DEFAULT 0,
   message TEXT
 );
-
--- SELECT * FROM users;
--- SELECT * FROM properties;
