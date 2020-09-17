@@ -129,13 +129,66 @@ exports.getAllReservations = getAllReservations;
 //   return Promise.resolve(limitedProperties);
 // }
 const getAllProperties = function(options, limit = 10) {
-  return pool.query(`
-  SELECT *
+  console.log(options);
+  // 1
+  const queryParams = [];
+  // 2
+  let queryString = `
+  SELECT properties.*, avg(property_reviews.rating) as average_rating
   FROM properties
-  LIMIT $1;
-  `, [limit])
+  JOIN property_reviews ON properties.id = property_id
+  `;
+
+  // 3
+  if (Object.keys(options).length > 0) {
+    queryString += `WHERE `;
+    if (options.city) {
+      queryParams.push(`%${options.city}%`);
+      queryString += `lower(city) LIKE lower($${queryParams.length}) `;
+    }
+  
+    if (options.owner_id) {
+      if (queryParams.length > 0) queryString += `AND `;
+      queryParams.push(options.owner_id);
+      queryString += `owner_id = $${queryParams.length} `;
+    }
+
+    if (options.minimum_price_per_night) {
+      if (queryParams.length > 0) queryString += `AND `;
+      queryParams.push(options.minimum_price_per_night * 100);
+      queryString += `cost_per_night >= $${queryParams.length} `;
+    }
+
+    if (options.maximum_price_per_night) {
+      if (queryParams.length > 0) queryString += `AND `;
+      queryParams.push(options.maximum_price_per_night * 100);
+      queryString += `cost_per_night <= $${queryParams.length} `;
+    }
+  }
+
+  queryString += `
+  GROUP BY properties.id
+  `;
+
+  if (options.minimum_rating) {
+    queryParams.push(parseInt(options.minimum_rating));
+    queryString += `HAVING avg(property_reviews.rating) >= $${queryParams.length} `;
+  }
+
+  // 4
+  queryParams.push(limit);
+  queryString += `
+  ORDER BY cost_per_night
+  LIMIT $${queryParams.length};
+  `;
+
+  // 5
+  console.log('string: ', queryString, 'param: ', queryParams);
+
+  // 6
+  return pool.query(queryString, queryParams)
     .then(res => res.rows)
-    .catch(err => console.log('query error', err.stack));
+    .catch(err => console.log('search query error', err.stack));
 };
 exports.getAllProperties = getAllProperties;
 
